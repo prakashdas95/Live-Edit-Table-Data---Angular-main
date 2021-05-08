@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -7,7 +7,8 @@ export interface FORM {
   name: string;
   email: string;
   contact: number;
-  details: string
+  details: string;
+  isEdit: boolean;
 }
 
 @Component({
@@ -18,66 +19,88 @@ export interface FORM {
 export class AppComponent implements AfterViewInit, OnInit {
   displayedColumns: string[] = ['name', 'email', 'contact', 'details'];
   dataSource: MatTableDataSource<any>;
-  TABLEDATA: FORM[] = [];
+  public TABLEDATA: FORM[] = [];
 
+  public hideShow: boolean = true;
 
-  contactform: FormGroup;
+  public contactform: FormGroup;
 
+  @ViewChild("inputBox") _el: ElementRef;
   @ViewChild(MatPaginator) paginator: MatPaginator;
   disable: any;
+  getlocaleStorageData: any;
 
   ngOnInit() {
     this.contactform = new FormGroup({
       name: new FormControl(null, [Validators.required, Validators.pattern('^[a-zA-Z ]*$')]),
       email: new FormControl(null, [Validators.required, Validators.email]),
-      contact: new FormControl(null, [Validators.required, Validators.pattern('^[0-9]*$')]),
-      details: new FormControl(null, [Validators.required, Validators.pattern('^[a-zA-Z0-9_]*$')]),
+      contact: new FormControl(null, [Validators.required, Validators.minLength(10), Validators.pattern("^[0-9]*$")]),
+      details: new FormControl(null, [Validators.required, Validators.pattern("^[a-zA-Z0-9]{10}$")]),
     });
 
-    const getlocaleStorageData = this.getFromLocalStorage();
-    console.log(getlocaleStorageData);
+    this.getlocaleStorageData = this.getFromLocalStorage();
 
-    if (getlocaleStorageData.length !== 0) {
-      this.dataSource = getlocaleStorageData;
-      this.TABLEDATA = getlocaleStorageData;
-      console.log(this.dataSource, getlocaleStorageData);
+    if (this.getlocaleStorageData?.length !== 0) {
+      this.TABLEDATA = this.getlocaleStorageData;
+      this.dataSource = new MatTableDataSource<any>(this.TABLEDATA);
     }
   }
 
   ngAfterViewInit() {
-    this.dataSource.paginator = this.paginator;
+    if (this.dataSource) this.dataSource.paginator = this.paginator;
+    console.log(this._el);
+    this._el && this._el.nativeElement.focus();
   }
 
-  onSubmit() {
+  public setFocus() {
+    console.log(this._el);
+    this._el && this._el.nativeElement.focus();
+  }
+
+  public onSubmit() {
     if (!this.contactform.valid) {
       return;
     }
     const data = this.contactform.value;
-    this.TABLEDATA.push(data);
+    this.TABLEDATA.push({ ...data, isEdit: false });
     this.dataSource = new MatTableDataSource<any>(this.TABLEDATA);
 
     this.saveTolocaleStorage(this.TABLEDATA);
   };
 
-  editValue(newValue, index, keyName) {
-    console.log(newValue, index, keyName);
-    this.TABLEDATA.findIndex((item) => {
+  public editValue(newValue, index, keyName) {
+    // console.log('onClick', newValue, index, keyName);
+    this.TABLEDATA.map((item) => {
       if (
-        item[keyName] === index[keyName] ||
-        (
-          item['name'] === index['name'] &&
-          item['email'] === index['email'] &&
-          item['contact'] === index['contact'] &&
-          item['details'] === index['details']
-        )
+        item['name'] === index['name'] &&
+        item['email'] === index['email'] &&
+        item['contact'] === index['contact'] &&
+        item['details'] === index['details']
+
       ) {
-        console.log('found : ', item);
+        // console.log('found : ', item);
         item[keyName] = newValue;
+        item['isEdit'] = false;
       }
     });
     this.saveTolocaleStorage(this.TABLEDATA);
+    this.dataSource = new MatTableDataSource<any>(this.getFromLocalStorage());
   }
 
+  public toggle(data: FORM) {
+    console.log(data);
+    data.isEdit = !data.isEdit;
+  }
+
+
+
+
+
+
+
+
+
+  //////////// localstorage 
 
   saveTolocaleStorage(data) {
     localStorage.setItem('formData', JSON.stringify(data))
